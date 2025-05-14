@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reproductor IPTV Legal (FTA)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; display: flex; height: 100vh; background-color: #222; color: #fff; }
+        #channel-list { width: 250px; background-color: #333; padding: 10px; overflow-y: auto; border-right: 1px solid #444; }
+        #channel-list h2 { margin-top: 0; font-size: 1.2em; }
+        #channel-list ul { list-style: none; padding: 0; }
+        #channel-list li { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #444; font-size: 0.9em; }
+        #channel-list li:hover, #channel-list li.active { background-color: #555; }
+        #video-container { flex-grow: 1; display: flex; flex-direction: column; background-color: #000; }
+        #video-player { width: 100%; flex-grow: 1; background-color: black; }
+        #now-playing { padding: 10px; background-color: #111; text-align: center; font-size: 1em; }
+        .warning { background-color: #ffc107; color: #333; padding: 10px; text-align: center; font-weight: bold; margin-bottom:10px;}
+    </style>
+    <!-- HLS.js para reproducir streams HLS (.m3u8) -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <div id="channel-list">
+        <h2>Canales FTA</h2>
+        <div class="warning">
+            Úsese solo con canales legales y de libre transmisión (FTA) cuya visualización esté permitida en tu región.
+        </div>
+        <ul id="channels">
+            {% if channels %}
+                {% for channel in channels %}
+                    <li data-url="{{ channel.url }}">{{ channel.name }}</li>
+                {% endfor %}
+            {% else %}
+                <li>No hay canales disponibles o error al cargar. Verifica <code>lista.m3u</code>.</li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <div id="video-container">
+        <div id="now-playing">Viendo: <span id="current-channel-name">Ninguno</span></div>
+        <video id="video-player" controls autoplay muted></video>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('video-player');
+            const channelItems = document.querySelectorAll('#channels li');
+            const currentChannelNameSpan = document.getElementById('current-channel-name');
+            let hls = null;
+
+            channelItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    // Quitar clase 'active' de otros items
+                    channelItems.forEach(i => i.classList.remove('active'));
+                    // Añadir clase 'active' al actual
+                    this.classList.add('active');
+
+                    const streamUrl = this.getAttribute('data-url');
+                    const channelName = this.textContent;
+                    currentChannelNameSpan.textContent = channelName;
+
+                    if (hls) {
+                        hls.destroy(); // Destruir instancia anterior de HLS si existe
+                    }
+
+                    if (Hls.isSupported() && streamUrl.includes('.m3u8')) {
+                        console.log("Usando HLS.js para: " + streamUrl);
+                        hls = new Hls();
+                        hls.loadSource(streamUrl);
+                        hls.attachMedia(video);
+                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                            video.play().catch(e => console.error("Error al intentar reproducir con HLS.js:", e));
+                        });
+                        hls.on(Hls.Events.ERROR, function (event, data) {
+                            if (data.fatal) {
+                                switch(data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    console.error("HLS.js: error de red fatal", data);
+                                    // Intentar recargar la fuente o manejar el error
+                                    // hls.loadSource(streamUrl); // Cuidado con bucles infinitos
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    console.error("HLS.js: error de medio fatal", data);
+                                    // hls.recoverMediaError(); // Intentar recuperar
+                                    break;
+                                default:
+                                    // No se puede recuperar, destruir HLS
+                                    console.error("HLS.js: Error fatal irrecuperable", data);
+                                    hls.destroy();
+                                    break;
+                                }
+                            }
+                        });
+                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                        // Navegadores con soporte nativo para HLS (ej. Safari)
+                        console.log("Usando soporte nativo HLS para: " + streamUrl);
+                        video.src = streamUrl;
+                        video.play().catch(e => console.error("Error al intentar reproducir con HLS nativo:", e));
+                    } else {
+                        // Para otros tipos de stream o como fallback
+                        console.log("Usando <video> src directamente para: " + streamUrl);
+                        video.src = streamUrl;
+                        video.play().catch(e => console.error("Error al intentar reproducir con <video> src:", e));
+                    }
+                });
+            });
+
+            // Autoplay puede ser bloqueado por el navegador si no hay interacción o no está silenciado
+            // El atributo 'muted' en el tag <video> ayuda a que el autoplay funcione.
+            video.play().catch(error => {
+                console.log("Autoplay bloqueado o falló, se requiere interacción del usuario: ", error);
+            });
+        });
+    </script>
+</body>
+</html>
