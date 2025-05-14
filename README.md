@@ -6,7 +6,7 @@ Esta es una sencilla aplicación web desarrollada con Python y Flask que permite
 
 ## Características
 
-*   Carga canales desde un archivo `lista.m3u` local. por ejemplo https://github.com/iptv-org/iptvhttps://github.com/iptv-org/iptv
+*   Carga canales desde un archivo `lista.m3u` local. por ejemplo https://github.com/iptv-org/iptv
 *   Interfaz simple con una lista de canales y un reproductor de video.
 *   Utiliza HTML5 Video y `hls.js` para reproducir streams HLS (.m3u8).
 *   Fácil de configurar y ejecutar.
